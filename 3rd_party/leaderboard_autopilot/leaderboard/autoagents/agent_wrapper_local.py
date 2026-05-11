@@ -184,8 +184,16 @@ class AgentWrapper(object):
 
         elif type_ == 'sensor.lidar.ray_cast':
             attributes['range'] = str(85)
-            attributes['rotation_frequency'] = str(10)
-            attributes['points_per_second'] = str(600000)
+            # Rotation frequency increased as I want every bounding box
+            # detection to show if lidar points are present or not
+            # -> Realistic LiDAR behavior is secondary
+            # Reason:
+            # With previous 10 Hz value only half of the rotation currently
+            # being scanned was delivered per tick, leaving forward (or
+            # backward) vehicles with num_lidar_points=0 even when clearly
+            # visible in the camera
+            attributes['rotation_frequency'] = str(20)
+            attributes['points_per_second'] = str(1200000)
             attributes['channels'] = str(64)
             attributes['upper_fov'] = str(10)
             attributes['lower_fov'] = str(-30)

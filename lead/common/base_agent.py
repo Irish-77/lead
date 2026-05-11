@@ -156,10 +156,14 @@ class BaseAgent:
                 axis=0,
             )
         lidar_x, lidar_y = input_data["lidar"][:, 0], input_data["lidar"][:, 1]
-        # Remove lidar points inside ego bounding boxes. We already need LiDAR for expert.
+        # Remove lidar points inside ego bounding box.
+        # Inside iff |x| <= ext_x AND |y| <= ext_y, so we keep points where
+        # |x| > ext_x OR |y| > ext_y. The previous AND form dropped the entire
+        # cross-shaped region around the ego (any same-lane or same-row
+        # vehicle ended up with num_lidar_points = 0 even at 10–20 m).
         input_data["lidar"] = input_data["lidar"][
             (np.abs(lidar_x) > self.config_expert.ego_extent_x)
-            & (np.abs(lidar_y) > self.config_expert.ego_extent_y)
+            | (np.abs(lidar_y) > self.config_expert.ego_extent_y)
         ]
         original_lidar_num_points = input_data["lidar"].shape[0]
 
