@@ -73,7 +73,7 @@ class ExpertConfig(BaseConfig):
     # How many pixels make up 1 meter in BEV grids.
     pixels_per_meter = 4.0
 
-    @property
+    @overridable_property
     def min_x_meter(self):
         """Back boundary of the planning area in meters."""
         return -32
@@ -83,12 +83,12 @@ class ExpertConfig(BaseConfig):
         """Front boundary of the planning area in meters."""
         return 64
 
-    @property
+    @overridable_property
     def min_y_meter(self):
         """Left boundary of the planning area in meters."""
         return -40
 
-    @property
+    @overridable_property
     def max_y_meter(self):
         """Right boundary of the planning area in meters."""
         return 40

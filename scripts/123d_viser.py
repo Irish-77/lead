@@ -17,12 +17,43 @@ try:
 except ImportError:
     WATCHDOG_AVAILABLE = False
 
+import numpy as np
+
 from py123d.api.scene.arrow.arrow_scene_builder import ArrowSceneBuilder
 from py123d.api.scene.scene_filter import SceneFilter
 from py123d.common.execution.thread_pool_executor import ThreadPoolExecutor
 from py123d.datatypes.sensors.lidar import LidarID
+import py123d.visualization.viser.elements.box_detections_se3_element as _box_element_module
 from py123d.visualization.viser.viser_config import ViserConfig
 from py123d.visualization.viser.viser_viewer import ViserViewer
+
+# Recolour 3D box detections with no lidar points (or `num_lidar_points`
+# unset) to red. These boxes would be filtered out of lidar-conditioned
+# training; highlighting them helps spot frustum-filter or num_lidar_points
+# wiring issues during CARLA-collection validation.
+_NO_LIDAR_COLOR = np.array([1.0, 0.2, 0.2], dtype=np.float32)
+_orig_get_outlines = _box_element_module._get_bounding_box_outlines
+
+
+def _outlines_with_no_lidar_highlight(scene, iteration, initial_ego_state):
+    box_outlines, box_colors, box_se3_array = _orig_get_outlines(scene, iteration, initial_ego_state)
+    if box_outlines.size == 0:
+        return box_outlines, box_colors, box_se3_array
+
+    box_detections = scene.get_box_detections_se3_at_iteration(iteration)
+    bd_list = box_detections.box_detections if box_detections is not None else []
+    if not bd_list:
+        return box_outlines, box_colors, box_se3_array
+
+    edges_per_box = box_colors.shape[0] // len(bd_list)
+    for i, bd in enumerate(bd_list):
+        npts = bd.attributes.num_lidar_points
+        if npts is None or npts == 0:
+            box_colors[i * edges_per_box : (i + 1) * edges_per_box, ...] = _NO_LIDAR_COLOR
+    return box_outlines, box_colors, box_se3_array
+
+
+_box_element_module._get_bounding_box_outlines = _outlines_with_no_lidar_highlight
 
 
 def parse_args():
@@ -145,7 +176,8 @@ def main():
     )
 
     try:
-        ViserViewer(scenes, viser_config=viser_config)
+        viewer = ViserViewer(scenes, viser_config=viser_config)
+        viewer.server.gui.configure_theme(dark_mode=False)
     finally:
         # Stop watchdog observer on exit
         if WATCHDOG_AVAILABLE and data_root:

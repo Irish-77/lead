@@ -519,6 +519,16 @@ class ExpertPy123D(Expert):
             BoxDetectionsSE3 with all detected objects.
         """
         box_detections: list[BoxDetectionSE3] = []
+        id_to_num_points = {
+            bb["id"]: bb.get("num_points")
+            for bb in input_data["bounding_boxes"]
+        }
+
+        def _num_points_for(actor_id: int) -> int | None:
+            value = id_to_num_points.get(actor_id)
+            if value is None or value < 0:
+                return None
+            return int(value)
 
         # Vehicles
         for vehicle in self.vehicles_inside_bev:
@@ -536,6 +546,7 @@ class ExpertPy123D(Expert):
                     attributes=BoxDetectionAttributes(
                         label=label,
                         track_token=str(vehicle.id),
+                        num_lidar_points=_num_points_for(vehicle.id),
                     ),
                     bounding_box_se3=expert_py123d_utils.get_actor_bounding_box_se3(
                         vehicle,
@@ -553,6 +564,7 @@ class ExpertPy123D(Expert):
                     attributes=BoxDetectionAttributes(
                         label=DefaultBoxDetectionLabel.PERSON,
                         track_token=str(walker.id),
+                        num_lidar_points=_num_points_for(walker.id),
                     ),
                     bounding_box_se3=expert_py123d_utils.get_actor_bounding_box_se3(
                         walker,
@@ -588,6 +600,7 @@ class ExpertPy123D(Expert):
                             attributes=BoxDetectionAttributes(
                                 label=DefaultBoxDetectionLabel.VEHICLE,
                                 track_token=str(bb["id"]),
+                                num_lidar_points=_num_points_for(bb["id"]),
                             ),
                             bounding_box_se3=expert_py123d_utils.get_bounding_box_se3(
                                 bb,
@@ -614,6 +627,7 @@ class ExpertPy123D(Expert):
                             attributes=BoxDetectionAttributes(
                                 label=DefaultBoxDetectionLabel.VEHICLE,
                                 track_token=str(bb["id"]),
+                                num_lidar_points=_num_points_for(bb["id"]),
                             ),
                             bounding_box_se3=expert_py123d_utils.get_bounding_box_se3(
                                 bb,
@@ -665,6 +679,7 @@ class ExpertPy123D(Expert):
                                 attributes=BoxDetectionAttributes(
                                     label=label,
                                     track_token=str(actor.id),
+                                    num_lidar_points=_num_points_for(actor.id),
                                 ),
                                 bounding_box_se3=expert_py123d_utils.get_actor_bounding_box_se3(
                                     actor,
