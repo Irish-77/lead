@@ -189,7 +189,7 @@ class ExpertMultiRigPy123D(ExpertPy123D):
                 dataset=self.config_expert.py123d_dataset,
                 split=(
                     f"{self.config_expert.py123d_dataset}_"
-                    f"{self.config_expert.py123d_split}",
+                    f"{self.config_expert.py123d_split}"
                 ),
                 log_name=self._log_name,
                 location=self._location,
@@ -434,7 +434,7 @@ class ExpertMultiRigPy123D(ExpertPy123D):
         rig: RigConfig,
         input_data: dict,
         mean_threshold: float = 10.0,
-        std_threshold: float = 20.0,
+        std_threshold: float = 12.0,
     ) -> bool:
         """True if any of this rig's RGB sensors returned a degenerate buffer.
 
@@ -451,6 +451,13 @@ class ExpertMultiRigPy123D(ExpertPy123D):
         Combined cut keeps real footage and rejects "GPU never wrote pixels
         here" buffers regardless of their brightness.
         """
+        # DIAGNOSTIC: collect per-camera mean/std; log a one-liner when the
+        # gate trips. Lets us see which specific camera fails per rig so we
+        # can target the fix (lift, drop, or accept). Logged at WARNING so
+        # it shows up even with default log filtering. Remove this block
+        # once the rig-extrinsic investigation is done.
+        diag: list[tuple[str, float, float]] = []
+        gate_failed = False
         for camera in rig.cameras:
             sensor_id = _sensor_id(rig_idx, camera.camera_id)
             frame = input_data.get(sensor_id)
@@ -459,13 +466,19 @@ class ExpertMultiRigPy123D(ExpertPy123D):
             bgra = frame[1] if isinstance(frame, tuple) else frame
             try:
                 rgb = bgra[..., :3]
-                if float(rgb.mean()) < mean_threshold:
-                    return True
-                if float(rgb.std()) < std_threshold:
-                    return True
+                m = float(rgb.mean())
+                s = float(rgb.std())
+                diag.append((str(camera.camera_id).split(".")[-1], m, s))
+                if m < mean_threshold or s < std_threshold:
+                    gate_failed = True
             except (ValueError, AttributeError):
                 continue
-        return False
+        if gate_failed and diag:
+            LOG.warning(
+                f"[gate-diag] rig={rig.rig_name} step={self.step} "
+                + ", ".join(f"{cid}:m={m:.0f},s={s:.0f}" for cid, m, s in diag)
+            )
+        return gate_failed
 
     @beartype
     def run_step(
